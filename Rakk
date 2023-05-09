@@ -1,0 +1,46 @@
+from datetime import datetime
+import json
+import requests
+from airflow import DAG
+from airflow.models import Variable
+from airflow.operators.python_operator import PythonOperator
+
+
+def rest_api_call(ds, **kwargs):
+    # Get the REST API URL from Airflow variables
+    url = Variable.get('rest_api_url')
+    
+    # Set the request headers and data
+    headers = {'Content-type': 'application/json'}
+    data = {
+        'param1': 'value1',
+        'param2': 'value2',
+        'param3': 'value3'
+    }
+    
+    # Make the REST API call
+    response = requests.post(url, headers=headers, data=json.dumps(data))
+    
+    # Get the response content
+    result = response.content.decode('utf-8')
+    
+    # Store the result in the task instance
+    kwargs['ti'].xcom_push(key='result', value=result)
+
+
+default_args = {
+    'owner': 'airflow',
+    'depends_on_past': False,
+    'start_date': datetime(2023, 5, 9),
+    'retries': 1
+}
+
+with DAG('rest_api_dag', default_args=default_args, schedule_interval=None) as dag:
+    rest_api_task = PythonOperator(
+        task_id='rest_api_task',
+        provide_context=True,
+        python_callable=rest_api_call
+    )
+
+    # Define the task dependencies
+    rest_api_task
